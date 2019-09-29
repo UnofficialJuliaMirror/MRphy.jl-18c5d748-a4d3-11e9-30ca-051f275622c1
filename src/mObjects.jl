@@ -9,7 +9,7 @@ An abstract type for pulses.
 
 See also: [`Pulse`](@ref).
 """
-abstract type AbstractPulse end
+abstract type AbstractPulse{T} end
 
 ## Basics
 Base.isequal(a::AbstractPulse, b::AbstractPulse) =
@@ -28,10 +28,12 @@ A struct for typical MR pulses: `Pulse <: AbstractPulse`.
 
 See also: [`AbstractPulse`](@ref).
 """
-mutable struct Pulse <: AbstractPulse
-  rf::TypeND(RF0D, [1,2])
-  gr::TypeND(GR0D, [2])
-  dt::T0D
+mutable struct Pulse{T<:AbstractFloat,
+                     Trf<:TypeND(RF0D{Complex{T}},[1,2]),
+                     Tgr<:TypeND(GR0D{T},[2])} <: AbstractPulse{T}
+  rf::Trf
+  gr::Tgr
+  dt::T0D{T}
   des::String
 end
 
@@ -69,7 +71,7 @@ Might make `AbstractSpinArray <: AbstractArray` in a future version
 
 See also: [`mSpinArray`](@ref), [`AbstractSpinCube`](@ref).
 """
-abstract type AbstractSpinArray end
+abstract type AbstractSpinArray{T} end
 
 ## set and get
 Base.setproperty!(spa::AbstractSpinArray, s::Symbol, x) = begin
@@ -79,7 +81,7 @@ Base.setproperty!(spa::AbstractSpinArray, s::Symbol, x) = begin
   if (s==:M)&&(size(x,1)==1) x=repeat(x, nM, 1) end
   if (s ∈ (:T1,:T2,:γ,:M)) size(x,1)∈(1,nM)||throw(DimensionMismatch) end
 
-  setfield!(spa, s, x)
+  setfield!(spa, s, convert(fieldtype(typeof(spa),s), x))
 end
 
 ## AbstractArray-like interface
@@ -111,15 +113,19 @@ extensional subtypes specialized for, e.g., arterial spin labelling.
 
 See also: [`AbstractSpinArray`](@ref).
 """
-mutable struct mSpinArray <: AbstractSpinArray
+mutable struct mSpinArray{T<:AbstractFloat,
+                          TT1<:TypeND(T0D{T}, [0,1]),
+                          TT2<:TypeND(T0D{T}, [0,1]),
+                          Tγ <:TypeND(Γ0D{T}, [0,1]),
+                          TM <:AbstractArray{T,2}} <: AbstractSpinArray{T}
   # *Immutable*:
   dim ::Dims
   mask::BitArray
   # *Mutable*:
-  T1 ::TypeND(T0D, [0,1])
-  T2 ::TypeND(T0D, [0,1])
-  γ  ::TypeND(Γ0D, [0,1])
-  M  ::TypeND(AbstractFloat, [2])
+  T1::TT1
+  T2::TT2
+  γ ::Tγ
+  M ::TM
 end
 
 """
@@ -153,12 +159,14 @@ contain all fields listed in the exemplary struct `mSpinCube`.
 
 See also: [`AbstractSpinArray`](@ref), [`mSpinCube`](@ref).
 """
-abstract type AbstractSpinCube <: AbstractSpinArray end
+abstract type AbstractSpinCube{T} <: AbstractSpinArray{T} end
 
 ## set and get
 Base.setproperty!(cb::AbstractSpinCube, s::Symbol, x) = begin
   s ∈ (:spinarray,:fov,:ofst,:loc) && throw(ExceptionImmutableField(s))
-  s ∈ fieldnames(typeof(cb)) ? setfield!(cb, s,x) : setfield!(cb.spinarray, s,x)
+  s ∈ fieldnames(typeof(cb)) ?
+    setfield!(cb, s,convert(fieldtype(typeof(cb),s), x)) :
+    setproperty!(cb.spinarray, s,x)
 end
 
 Base.getproperty(cb::AbstractSpinCube, s::Symbol) =
@@ -187,15 +195,18 @@ regularly spaced spins, e.g., a volume.
 
 See also: [`AbstractSpinCube`](@ref).
 """
-mutable struct mSpinCube <: AbstractSpinCube
+mutable struct mSpinCube{T<:AbstractFloat,
+                         Tfov <:TypeND(L0D{T}, [2]),
+                         Tofst<:TypeND(L0D{T}, [2]),
+                         Tloc <:TypeND(L0D{T}, [2]),
+                         TΔf  <:TypeND(F0D{T}, [0,1])} <: AbstractSpinCube{T}
   # *Immutable*:
-  spinarray::AbstractSpinArray
-  fov ::TypeND(L0D, [2])
-  ofst::TypeND(L0D, [2])
-  loc ::TypeND(L0D, [2])
+  spinarray::AbstractSpinArray{T}
+  fov ::Tfov
+  ofst::Tofst
+  loc ::Tloc
   # *Mutable*:
-  Δf  ::TypeND(F0D, [0,1])
-
+  Δf  ::TΔf
 end
 
 """
@@ -205,7 +216,7 @@ end
 Create `mSpinCube` object with prescribed parameters, with `dim = size(mask)`.
 """
 function mSpinCube(mask::BitArray{3}, fov::TypeND(L0D, [2]);
-                   ofst::TypeND(L0D, [2])=[0 0 0]u"cm", Δf=0u"Hz",
+                   ofst::TypeND(L0D, [2])=[0. 0. 0.]u"cm", Δf=0.0u"Hz",
                    T1=1.47u"s", T2=0.07u"s", γ=γ¹H)
   size(fov)==size(ofst)==(1,3) || throw(DimensionMismatch)
   spa = mSpinArray(mask; T1=T1, T2=T2, γ=γ)
@@ -231,7 +242,7 @@ contain all fields listed in the exemplary struct `mSpinBolus`.
 
 See also: [`AbstractSpinArray`](@ref), [`mSpinBolus`](@ref).
 """
-abstract type AbstractSpinBolus <: AbstractSpinArray end
+abstract type AbstractSpinBolus{T} <: AbstractSpinArray{T} end
 
 ## set and get
 
@@ -254,7 +265,7 @@ of moving spins, e.g., a blood bolus in ASL context.
 
 See also: [`AbstractSpinBolus`](@ref).
 """
-mutable struct mSpinBolus <: AbstractSpinBolus
+mutable struct mSpinBolus{T} <: AbstractSpinBolus{T}
   # *Immutable*:
   # *Mutable*:
 end
