@@ -56,7 +56,7 @@ end
 Base.setproperty!(p::Pulse, sym::Symbol, x) = begin
   if (sym==:gr) size(x)==(size(p.rf,1),3)||throw(DimensionMismatch) end
   if (sym==:rf) size(x,1)==size(p.gr,1)||throw(DimensionMismatch) end
-  setfield!(p, sym, x)
+  setfield!(p, sym, convert(fieldtype(typeof(p), sym), x))
 end
 
 #= Spin =#

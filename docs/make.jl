@@ -8,5 +8,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/tianrluo/MRphy.jl.git",
-    devbranch = "dev"
+    devbranch = "dev",
+    versions = ["stable" => "v^", "v#.#.#"]
 )
